@@ -39,6 +39,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.lang.Math;
 
 import uk.co.lemberg.motion_gestures.R;
 import uk.co.lemberg.motion_gestures.adapter.ColorsAdapter;
@@ -58,6 +59,8 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 
 	private static final int GESTURE_DURATION_MS = 1280000; // 1.28 sec
 	private static final int GESTURE_SAMPLES = 128;
+	/* REFRESH RATE */
+	private static final int SAMPLING_PERIOD = 10000;
 
 	private AppSettings settings;
 
@@ -249,7 +252,7 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 			firstTimestamp = -1;
 			fileNameTimestamp = System.currentTimeMillis();
 			chart.highlightValue(null, true);
-			recStarted = sensorManager.registerListener(sensorEventListener, accelerometer, GESTURE_DURATION_MS / GESTURE_SAMPLES);
+			recStarted = sensorManager.registerListener(sensorEventListener, accelerometer, SAMPLING_PERIOD);
 		}
 		return recStarted;
 	}
@@ -261,18 +264,28 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 		}
 	}
 
+	private Entry previousBound = null;
+	private Entry currentBound = null;
+
 	private final OnChartValueSelectedListener chartValueSelectedListener = new OnChartValueSelectedListener() {
 		@Override
 		public void onValueSelected(Entry e, Highlight h) {
+			previousBound = currentBound;
+			currentBound = e;
 			ILineDataSet set = getLineData().getDataSetByIndex(h.getDataSetIndex());
-			selectedEntryIndex = set.getEntryIndex(e);
+
+			/* Keeping the left bound as the start Index */
+			if (previousBound == null || currentBound.getX() < previousBound.getX()) {
+				selectedEntryIndex = set.getEntryIndex(e);
+
+			}
+
 			supportInvalidateOptionsMenu();
 			fillStatus();
 
 			// highlight ending line
-			Entry endEntry = getSelectionEndEntry();
-			if (endEntry != null) {
-				Highlight endHightlight = new Highlight(endEntry.getX(), endEntry.getY(), h.getDataSetIndex());
+			if (previousBound != null) {
+				Highlight endHightlight = new Highlight(previousBound.getX(), previousBound.getY(), h.getDataSetIndex());
 				chart.highlightValues(new Highlight[]{h, endHightlight});
 			}
 		}
@@ -476,7 +489,8 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 
 	private void saveSelectionDataToast(String fileName) {
 		try {
-			Utils.saveLineData(new File(settings.getWorkingDir(), fileName), getLineData(), selectedEntryIndex, GESTURE_SAMPLES);
+			int dataSetSize = (int) (Math.abs(currentBound.getX() - previousBound.getX()) / (SAMPLING_PERIOD/1000));
+			Utils.saveLineData(new File(settings.getWorkingDir(), fileName), getLineData(), selectedEntryIndex, dataSetSize);
 			showToast(getString(R.string.data_saved));
 		}
 		catch (IOException e) {
@@ -537,7 +551,7 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 		set.setLineWidth(1f);
 		set.setFillAlpha(65);
 		set.setFillColor(ColorTemplate.getHoloBlue());
-		set.setHighLightColor(Color.WHITE);
+		set.setHighLightColor(Color.RED);
 		set.setValueTextColor(Color.WHITE);
 		set.setValueTextSize(9f);
 		set.setDrawValues(false);
