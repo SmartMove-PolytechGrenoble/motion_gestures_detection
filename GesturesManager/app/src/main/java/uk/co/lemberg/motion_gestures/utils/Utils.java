@@ -72,10 +72,11 @@ public class Utils
 
 	public static void saveLineData(File file, LineData data) throws IOException {
 		ILineDataSet setX = data.getDataSetByIndex(0);
-		saveLineData(file, data, 0, setX.getEntryCount());
+		saveLineData(file, data, 0, setX.getEntryCount(),"33","RUNNING");
 	}
 
-	public static void saveLineData(File file, LineData data, int index, int length) throws IOException {
+	/* Change here */
+	public static void saveLineData(File file, LineData data, int index, int length, String personID, String actionLabel) throws IOException {
 		// csv format:
 		// timestamp, x, y, z
 
@@ -93,8 +94,10 @@ public class Utils
 
 			float startX = setX.getEntryForIndex(index).getX(); // fix start time
 			for (int i = index; i < index + length; i++) {
-				String str = String.format(Locale.ROOT, "%f,%f,%f,%f\n",
-					setX.getEntryForIndex(i).getX() - startX,
+				String str = String.format(Locale.ROOT, "%s,%s,%f,%f,%f,%f\n",
+					personID,
+						actionLabel,
+						setX.getEntryForIndex(i).getX() - startX,
 					setX.getEntryForIndex(i).getY(),
 					setY.getEntryForIndex(i).getY(),
 					setZ.getEntryForIndex(i).getY());

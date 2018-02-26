@@ -18,6 +18,7 @@ import android.util.Pair;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -68,6 +69,8 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 	private LineChart chart;
 	private ToggleButton toggleRec;
 	private TextView txtStats;
+	private EditText moveLabel;
+	private EditText userID;
 
 	private SensorManager sensorManager;
 	private Sensor accelerometer;
@@ -192,6 +195,8 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 		chart = findViewById(R.id.chart);
 		toggleRec = findViewById(R.id.toggleRec);
 		txtStats = findViewById(R.id.txtStats);
+		moveLabel = findViewById(R.id.moveLabel);
+		userID = findViewById(R.id.userID);
 
 		toggleRec.setOnClickListener(clickListener);
 
@@ -277,7 +282,6 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 			/* Keeping the left bound as the start Index */
 			if (previousBound == null || currentBound.getX() < previousBound.getX()) {
 				selectedEntryIndex = set.getEntryIndex(e);
-
 			}
 
 			supportInvalidateOptionsMenu();
@@ -382,6 +386,14 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 
 	private void fillStatus() {
 		txtStats.setText(formatStatsText());
+	}
+
+	private String getMoveLabel() {
+		return moveLabel.getText().toString();
+	}
+
+	private String getUserID() {
+		return userID.getText().toString();
 	}
 
 	private String formatStatsText() {
@@ -490,7 +502,7 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 	private void saveSelectionDataToast(String fileName) {
 		try {
 			int dataSetSize = (int) (Math.abs(currentBound.getX() - previousBound.getX()) / (SAMPLING_PERIOD/1000));
-			Utils.saveLineData(new File(settings.getWorkingDir(), fileName), getLineData(), selectedEntryIndex, dataSetSize);
+			Utils.saveLineData(new File(settings.getWorkingDir(), fileName), getLineData(), selectedEntryIndex, dataSetSize, getUserID(),getMoveLabel());
 			showToast(getString(R.string.data_saved));
 		}
 		catch (IOException e) {
