@@ -85,22 +85,28 @@ public class Utils
 			//String header = String.format("index,x,y,z\n");
 			//osw.write(header);
 
-			ILineDataSet setX = data.getDataSetByIndex(0);
-			ILineDataSet setY = data.getDataSetByIndex(1);
-			ILineDataSet setZ = data.getDataSetByIndex(2);
+			ILineDataSet setXa = data.getDataSetByIndex(0);
+			ILineDataSet setYa = data.getDataSetByIndex(1);
+			ILineDataSet setZa = data.getDataSetByIndex(2);
+			ILineDataSet setXg = data.getDataSetByIndex(3);
+			ILineDataSet setYg = data.getDataSetByIndex(4);
+			ILineDataSet setZg = data.getDataSetByIndex(5);
 
-			if ((setX.getEntryCount() != setY.getEntryCount()) || (setY.getEntryCount() != setZ.getEntryCount()))
-				throw new IllegalStateException("Z, Y, Z data set is different");
+			if ((setXa.getEntryCount() != setYa.getEntryCount()) || (setYa.getEntryCount() != setZa.getEntryCount()))
+				throw new IllegalStateException("X, Y, Z data set is different");
 
-			float startX = setX.getEntryForIndex(index).getX(); // fix start time
+			float startX = setXa.getEntryForIndex(index).getX(); // fix start time
 			for (int i = index; i < index + length; i++) {
-				String str = String.format(Locale.ROOT, "%s,%s,%f,%f,%f,%f\n",
+				String str = String.format(Locale.ROOT, "%s,%s,%f,%f,%f,%f,%f,%f,%f\n",
 					personID,
 						actionLabel,
-						setX.getEntryForIndex(i).getX() - startX,
-					setX.getEntryForIndex(i).getY(),
-					setY.getEntryForIndex(i).getY(),
-					setZ.getEntryForIndex(i).getY());
+						setXa.getEntryForIndex(i).getX() - startX,
+					setXa.getEntryForIndex(i).getY(),
+					setYa.getEntryForIndex(i).getY(),
+					setZa.getEntryForIndex(i).getY(),
+					setXg.getEntryForIndex(i).getY(),
+					setYg.getEntryForIndex(i).getY(),
+					setZg.getEntryForIndex(i).getY());
 				osw.write(str);
 			}
 			osw.close();

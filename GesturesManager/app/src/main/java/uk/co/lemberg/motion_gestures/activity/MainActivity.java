@@ -74,6 +74,7 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 
 	private SensorManager sensorManager;
 	private Sensor accelerometer;
+	private Sensor gyroscope;
 
 	private boolean recStarted = false;
 	private long firstTimestamp = -1;
@@ -89,6 +90,7 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 		settings = AppSettings.getAppSettings(this);
 		sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
 		accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
+		gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
 
 		initViews();
 		fillStatus();
@@ -257,7 +259,8 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 			firstTimestamp = -1;
 			fileNameTimestamp = System.currentTimeMillis();
 			chart.highlightValue(null, true);
-			recStarted = sensorManager.registerListener(sensorEventListener, accelerometer, SAMPLING_PERIOD);
+			sensorManager.registerListener(sensorEventListener, accelerometer, SAMPLING_PERIOD);
+			recStarted = sensorManager.registerListener(sensorEventListener, gyroscope, SAMPLING_PERIOD);
 		}
 		return recStarted;
 	}
@@ -360,9 +363,16 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 			final float y = event.values[1];
 			final float z = event.values[2];
 
-			addPoint(getLineData(), X_INDEX, floatTimestampMicros, x);
-			addPoint(getLineData(), Y_INDEX, floatTimestampMicros, y);
-			addPoint(getLineData(), Z_INDEX, floatTimestampMicros, z);
+			if(event.sensor.getType() != 11) {
+				addPoint(getLineData(), Xa_INDEX, floatTimestampMicros, x);
+				addPoint(getLineData(), Ya_INDEX, floatTimestampMicros, y);
+				addPoint(getLineData(), Za_INDEX, floatTimestampMicros, z);
+			}
+			else {
+				addPoint(getLineData(), Xg_INDEX, floatTimestampMicros, x);
+				addPoint(getLineData(), Yg_INDEX, floatTimestampMicros, y);
+				addPoint(getLineData(), Zg_INDEX, floatTimestampMicros, z);
+			}
 
 			chart.notifyDataSetChanged();
 			chart.invalidate();
@@ -547,12 +557,15 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 	}
 
 	// region chart helper methods
-	private static final String[] LINE_DESCRIPTIONS = {"X", "Y", "Z"};
-	private static final int[] LINE_COLORS = {0xFFFF0000, 0xFF00FF00, 0xFF0000FF};
+	private static final String[] LINE_DESCRIPTIONS = {"Xa", "Ya", "Za", "Xg", "Yg", "Zg"};
+	private static final int[] LINE_COLORS = {0xFFFF0000, 0xFF00FF00, 0xFF0000FF,0xFFFF0000, 0xFF00FF00, 0xFF0000FF};
 
-	private static final int X_INDEX = 0;
-	private static final int Y_INDEX = 1;
-	private static final int Z_INDEX = 2;
+	private static final int Xa_INDEX = 0;
+	private static final int Ya_INDEX = 1;
+	private static final int Za_INDEX = 2;
+	private static final int Xg_INDEX = 3;
+	private static final int Yg_INDEX = 4;
+	private static final int Zg_INDEX = 5;
 
 	private static LineDataSet createLineDataSet(String description, int color) {
 		LineDataSet set = new LineDataSet(null, description);
@@ -597,9 +610,9 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 		}
 
 		for (Utils.FileEntry entry : pair.second) {
-			addPoint(lineData, X_INDEX, entry.timestamp, entry.x);
-			addPoint(lineData, Y_INDEX, entry.timestamp, entry.y);
-			addPoint(lineData, Z_INDEX, entry.timestamp, entry.z);
+			addPoint(lineData, Xa_INDEX, entry.timestamp, entry.x);
+			addPoint(lineData, Ya_INDEX, entry.timestamp, entry.y);
+			addPoint(lineData, Za_INDEX, entry.timestamp, entry.z);
 		}
 
 		return new Pair<>(pair.first, lineData);
