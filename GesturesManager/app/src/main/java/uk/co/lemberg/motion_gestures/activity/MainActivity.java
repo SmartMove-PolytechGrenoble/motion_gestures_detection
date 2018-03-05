@@ -371,7 +371,6 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 			else {
 				addPoint(getLineData(), Xg_INDEX, floatTimestampMicros, x);
 				addPoint(getLineData(), Yg_INDEX, floatTimestampMicros, y);
-				addPoint(getLineData(), Zg_INDEX, floatTimestampMicros, z);
 			}
 
 			chart.notifyDataSetChanged();
@@ -557,7 +556,7 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 	}
 
 	// region chart helper methods
-	private static final String[] LINE_DESCRIPTIONS = {"Xa", "Ya", "Za", "Xg", "Yg", "Zg"};
+	private static final String[] LINE_DESCRIPTIONS = {"Xa", "Ya", "Za", "Xg", "Yg"};
 	private static final int[] LINE_COLORS = {0xFFFF0000, 0xFF00FF00, 0xFF0000FF,0xFFFF0000, 0xFF00FF00, 0xFF0000FF};
 
 	private static final int Xa_INDEX = 0;
@@ -565,7 +564,6 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 	private static final int Za_INDEX = 2;
 	private static final int Xg_INDEX = 3;
 	private static final int Yg_INDEX = 4;
-	private static final int Zg_INDEX = 5;
 
 	private static LineDataSet createLineDataSet(String description, int color) {
 		LineDataSet set = new LineDataSet(null, description);

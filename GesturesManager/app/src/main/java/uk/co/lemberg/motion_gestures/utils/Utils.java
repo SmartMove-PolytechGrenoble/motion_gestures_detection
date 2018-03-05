@@ -90,14 +90,13 @@ public class Utils
 			ILineDataSet setZa = data.getDataSetByIndex(2);
 			ILineDataSet setXg = data.getDataSetByIndex(3);
 			ILineDataSet setYg = data.getDataSetByIndex(4);
-			ILineDataSet setZg = data.getDataSetByIndex(5);
 
 			if ((setXa.getEntryCount() != setYa.getEntryCount()) || (setYa.getEntryCount() != setZa.getEntryCount()))
 				throw new IllegalStateException("X, Y, Z data set is different");
 
 			float startX = setXa.getEntryForIndex(index).getX(); // fix start time
 			for (int i = index; i < index + length; i++) {
-				String str = String.format(Locale.ROOT, "%s,%s,%f,%f,%f,%f,%f,%f,%f\n",
+				String str = String.format(Locale.ROOT, "%s,%s,%f,%f,%f,%f,%f,%f\n",
 					personID,
 						actionLabel,
 						setXa.getEntryForIndex(i).getX() - startX,
@@ -105,8 +104,7 @@ public class Utils
 					setYa.getEntryForIndex(i).getY(),
 					setZa.getEntryForIndex(i).getY(),
 					setXg.getEntryForIndex(i).getY(),
-					setYg.getEntryForIndex(i).getY(),
-					setZg.getEntryForIndex(i).getY());
+					setYg.getEntryForIndex(i).getY());
 				osw.write(str);
 			}
 			osw.close();
