@@ -2,9 +2,14 @@ package uk.co.lemberg.motion_gestures.activity;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.bluetooth.BluetoothDevice;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
+import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
@@ -45,6 +50,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.lang.Math;
 
@@ -113,18 +119,12 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 		// This variable is global and static-like
 		// (i.e. all data inside is never reinitialized and accessible from everywhere)
 		mApp = ((Application) getApplicationContext());
+		mApp.setConnectionRequested(true);
 		isServiceRegistered = false;
 
 		setContentView(R.layout.activity_main);
 
         checkPermissions();
-
-        if (!permissionGranted) {
-			requestLocationPermission();
-			if(!permissionGranted)
-				Toast.makeText(getApplicationContext(), "Bluetooth related features have been disabled", Toast.LENGTH_LONG).show();
-
-        }
 
         // Permission is forced by preceding while
 		Intent playI = new Intent(MainActivity.this, uk.co.lemberg.motion_gestures.ble.DeviceScanActivity.class); //Start next activity
@@ -151,6 +151,7 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
             }
         };
         bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
+		registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
         isServiceRegistered = true;
 		initViews();
 	}
@@ -158,7 +159,10 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 	@Override
 	protected void onResume() {
 		super.onResume();
+		registerReceiver(mGattUpdateReceiver, makeGattUpdateIntentFilter());
 		checkPermissions();
+		if(mApp.isConnectionRequested())
+			bReconnect();
 	}
 
 	@Override
@@ -213,9 +217,15 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 				bConnect();
 
 				settings = AppSettings.getAppSettings(this);
-				sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-				accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
-				gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
+				if(mApp.isConnectionRequested()){
+					// Connect to SensorTag
+				}
+				else {
+					// Use phone sensors
+					sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+					accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
+					gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
+				}
 
 				fillStatus();
 				break;
@@ -716,9 +726,17 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 	}
 
 	// Bluetooth utils
+	private static IntentFilter makeGattUpdateIntentFilter() {
+		final IntentFilter intentFilter = new IntentFilter();
+		intentFilter.addAction(BluetoothLeService.ACTION_GATT_CONNECTED);
+		intentFilter.addAction(BluetoothLeService.ACTION_GATT_DISCONNECTED);
+		intentFilter.addAction(BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED);
+		intentFilter.addAction(BluetoothLeService.ACTION_DATA_AVAILABLE);
+		return intentFilter;
+	}
+
 	private void bConnect() {
 		if (mApp.getBluetoothDevices() != null && mApp.isConnectionRequested()) {
-			mApp.setConnectionRequested(false);
 			for (BluetoothDevice bD : mApp.getBluetoothDevices()) {
 				if (mBluetoothLeService.connect(bD.getAddress())) {
 					devicesStatus.put(bD.getAddress(), R.string.connected);
@@ -733,5 +751,63 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 		}
 	}
 
+	private void bReconnect() {
+		// service not yet initialized
+		if(mBluetoothLeService == null){
+			return;
+		}
+		if (mBluetoothLeService.getmConnectionState().containsValue(mBluetoothLeService.STATE_DISCONNECTED)) {
+			DialogInterface.OnClickListener dialogClickListener = new DialogInterface.OnClickListener() {
+				@Override
+				public void onClick(DialogInterface dialog, int which) {
+					switch (which){
+						case DialogInterface.BUTTON_POSITIVE:
+							for (HashMap.Entry<String, Integer> entry : mBluetoothLeService.getmConnectionState().entrySet()) {
+								String key = entry.getKey();
+								Integer value = entry.getValue();
+								if (value == mBluetoothLeService.STATE_DISCONNECTED) {
+									mBluetoothLeService.connect(key);
+								}
+							}
+							break;
+
+						case DialogInterface.BUTTON_NEGATIVE:
+							mApp.setConnectionRequested(false);
+							break;
+					}
+				}
+			};
+
+			AlertDialog.Builder builder = new AlertDialog.Builder(this);
+			builder.setMessage("At least one sensor is disconnected, do you want to try to reconnect ?").setPositiveButton("Yes", dialogClickListener)
+					.setNegativeButton("No", dialogClickListener).show();
+		}
+	}
+
+	// Handles various events fired by the Service.
+	// ACTION_GATT_CONNECTED: connected to a GATT server.
+	// ACTION_GATT_DISCONNECTED: disconnected from a GATT server.
+	// ACTION_GATT_SERVICES_DISCOVERED: discovered GATT services.
+	// ACTION_DATA_AVAILABLE: received data from the device.  This can be a result of read
+	//                        or notification operations.
+	private final BroadcastReceiver mGattUpdateReceiver = new BroadcastReceiver() {
+		@Override
+		public void onReceive(Context context, Intent intent) {
+			String action = intent.getAction();
+			String address = intent.getStringExtra("address");
+			if (BluetoothLeService.ACTION_GATT_CONNECTED.equals(action)) {
+				Toast.makeText(getApplicationContext(), "device " + address + " connected", Toast.LENGTH_LONG).show();
+
+			} else if (BluetoothLeService.ACTION_GATT_DISCONNECTED.equals(action)) {
+				Toast.makeText(getApplicationContext(), "device " + address + " disconnected", Toast.LENGTH_LONG).show();
+
+			} else if (BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
+				Toast.makeText(getApplicationContext(), "services discovered for device " + address, Toast.LENGTH_LONG).show();
+				bReconnect();
+			} else if (BluetoothLeService.ACTION_DATA_AVAILABLE.equals(action)) {
+
+			}
+		}
+	};
 	// endregion
 }

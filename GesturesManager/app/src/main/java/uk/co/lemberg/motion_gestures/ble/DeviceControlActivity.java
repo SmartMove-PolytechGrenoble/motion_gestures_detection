@@ -31,17 +31,15 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.Window;
 import android.widget.ExpandableListView;
 import android.widget.SimpleExpandableListAdapter;
 import android.widget.TextView;
 import android.widget.Toolbar;
 
+import uk.co.lemberg.motion_gestures.R;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-
-import uk.co.lemberg.motion_gestures.R;
 
 /**
  * For a given BLE device, this Activity provides the user interface to connect, display data,
@@ -99,6 +97,10 @@ public class DeviceControlActivity extends Activity {
         @Override
         public void onReceive(Context context, Intent intent) {
             final String action = intent.getAction();
+            final String address = intent.getStringExtra("address");
+            // Update received is not from this device
+            if(!address.equals(mDeviceAddress))
+                return;
             if (BluetoothLeService.ACTION_GATT_CONNECTED.equals(action)) {
                 mConnected = true;
                 updateConnectionState(R.string.connected);
@@ -149,7 +151,7 @@ public class DeviceControlActivity extends Activity {
                     }
                     return false;
                 }
-    };
+            };
 
     private void clearUI() {
         mGattServicesList.setAdapter((SimpleExpandableListAdapter) null);
@@ -159,11 +161,7 @@ public class DeviceControlActivity extends Activity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        requestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(R.layout.gatt_services_characteristics);
-        Toolbar toolbar = (Toolbar) this.findViewById(android.R.id.content).getRootView().findViewById(R.id.my_toolbar);
-        setActionBar(toolbar);
-        getActionBar().setDisplayShowTitleEnabled(false);
 
         final Intent intent = getIntent();
         mDeviceName = intent.getStringExtra(EXTRAS_DEVICE_NAME);
@@ -176,8 +174,11 @@ public class DeviceControlActivity extends Activity {
         mConnectionState = (TextView) findViewById(R.id.connection_state);
         mDataField = (TextView) findViewById(R.id.data_value);
 
-        getActionBar().setTitle(mDeviceName);
-        getActionBar().setDisplayHomeAsUpEnabled(true);
+        Toolbar toolbar = (Toolbar) this.findViewById(android.R.id.content).getRootView().findViewById(R.id.my_toolbar);
+        setActionBar(toolbar);
+        getActionBar().setDisplayShowTitleEnabled(false);
+        toolbar.setTitle(R.string.title_devices);
+
         Intent gattServiceIntent = new Intent(this, BluetoothLeService.class);
         bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
     }

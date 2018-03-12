@@ -29,12 +29,15 @@ import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Binder;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.util.Log;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
+
+import uk.co.lemberg.motion_gestures.Application;
 
 /**
  * Service for managing connection and data communication with a GATT server hosted on a
@@ -48,9 +51,9 @@ public class BluetoothLeService extends Service {
     private BluetoothGatt mBluetoothGatt;
     private HashMap<String,Integer> mConnectionState;
 
-    private static final int STATE_DISCONNECTED = 0;
-    private static final int STATE_CONNECTING = 1;
-    private static final int STATE_CONNECTED = 2;
+    public static final int STATE_DISCONNECTED = 0;
+    public static final int STATE_CONNECTING = 1;
+    public static final int STATE_CONNECTED = 2;
 
     public final static String ACTION_GATT_CONNECTED =
             "com.example.bluetooth.le.ACTION_GATT_CONNECTED";
@@ -71,28 +74,28 @@ public class BluetoothLeService extends Service {
     private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-            String intentAction = gatt.getDevice().getAddress();
+            String intentAction;
             if (newState == BluetoothProfile.STATE_CONNECTED) {
-                intentAction = intentAction + ACTION_GATT_CONNECTED;
+                intentAction = ACTION_GATT_CONNECTED;
                 mConnectionState.put(gatt.getDevice().getAddress(),STATE_CONNECTED);
-                broadcastUpdate(intentAction);
+                broadcastUpdate(intentAction, gatt.getDevice().getAddress());
                 Log.i(TAG, "Connected to GATT server.");
                 // Attempts to discover services after successful connection.
                 Log.i(TAG, "Attempting to start service discovery:" +
                         mBluetoothGatt.discoverServices());
 
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                intentAction = intentAction + ACTION_GATT_DISCONNECTED;
+                intentAction = ACTION_GATT_DISCONNECTED;
                 mConnectionState.put(gatt.getDevice().getAddress(),STATE_DISCONNECTED);
                 Log.i(TAG, "Disconnected from GATT server.");
-                broadcastUpdate(intentAction);
+                broadcastUpdate(intentAction, gatt.getDevice().getAddress());
             }
         }
 
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                broadcastUpdate(gatt.getDevice().getAddress() + ACTION_GATT_SERVICES_DISCOVERED);
+                broadcastUpdate(ACTION_GATT_SERVICES_DISCOVERED, gatt.getDevice().getAddress());
             } else {
                 Log.w(TAG, "onServicesDiscovered received: " + status);
             }
@@ -103,24 +106,25 @@ public class BluetoothLeService extends Service {
                                          BluetoothGattCharacteristic characteristic,
                                          int status) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                broadcastUpdate(gatt.getDevice().getAddress() + ACTION_DATA_AVAILABLE, characteristic);
+                broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic, gatt.getDevice().getAddress());
             }
         }
 
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt,
                                             BluetoothGattCharacteristic characteristic) {
-            broadcastUpdate(gatt.getDevice().getAddress() + ACTION_DATA_AVAILABLE, characteristic);
+            broadcastUpdate(ACTION_DATA_AVAILABLE, characteristic, gatt.getDevice().getAddress());
         }
     };
 
-    private void broadcastUpdate(final String action) {
+    private void broadcastUpdate(final String action, final String address) {
         final Intent intent = new Intent(action);
+        intent.putExtra("address",address);
         sendBroadcast(intent);
     }
 
     private void broadcastUpdate(final String action,
-                                 final BluetoothGattCharacteristic characteristic) {
+                                 final BluetoothGattCharacteristic characteristic, final String address) {
         final Intent intent = new Intent(action);
         // This is special handling for the Heart Rate Measurement profile.  Data parsing is
         // carried out as per profile specifications:
@@ -138,6 +142,7 @@ public class BluetoothLeService extends Service {
             final int heartRate = characteristic.getIntValue(format, 1);
             Log.d(TAG, String.format("Received heart rate: %d", heartRate));
             intent.putExtra(EXTRA_DATA, String.valueOf(heartRate));
+            intent.putExtra("address",address);
         } else {
             // For all other profiles, writes the data formatted in HEX.
             final byte[] data = characteristic.getValue();
@@ -146,6 +151,7 @@ public class BluetoothLeService extends Service {
                 for(byte byteChar : data)
                     stringBuilder.append(String.format("%02X ", byteChar));
                 intent.putExtra(EXTRA_DATA, new String(data) + "\n" + stringBuilder.toString());
+                intent.putExtra("address",address);
             }
         }
         sendBroadcast(intent);
@@ -316,5 +322,9 @@ public class BluetoothLeService extends Service {
         if (mBluetoothGatt == null) return null;
 
         return mBluetoothGatt.getServices();
+    }
+
+    public HashMap<String,Integer> getmConnectionState(){
+            return mConnectionState;
     }
 }
