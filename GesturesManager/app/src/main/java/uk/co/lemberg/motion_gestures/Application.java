@@ -1,15 +1,19 @@
 package uk.co.lemberg.motion_gestures;
 
+import android.bluetooth.BluetoothDevice;
 import android.os.Environment;
 import android.preference.PreferenceManager;
 
 import java.io.File;
+import java.util.ArrayList;
 
 import uk.co.lemberg.motion_gestures.settings.AppSettings;
 
 
 public class Application extends android.app.Application {
 	private AppSettings settings;
+	private ArrayList<BluetoothDevice> bluetoothDevices;
+	private boolean isConnectionRequested = false;
 
 	public AppSettings getSettings()
 	{
@@ -31,4 +35,19 @@ public class Application extends android.app.Application {
 
 		super.onCreate();
 	}
+
+	public void setBluetoothDevices(ArrayList<BluetoothDevice> bluetoothDevices){
+		this.bluetoothDevices = bluetoothDevices;
+	}
+
+	public ArrayList<BluetoothDevice> getBluetoothDevices() {
+		return this.bluetoothDevices;
+	}
+	public void setConnectionRequested(boolean request){
+		this.isConnectionRequested = request;
+	}
+	public boolean isConnectionRequested(){
+		return isConnectionRequested;
+	}
 }
+

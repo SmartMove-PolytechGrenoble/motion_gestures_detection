@@ -2,7 +2,10 @@ package uk.co.lemberg.motion_gestures.activity;
 
 import android.Manifest;
 import android.app.Activity;
+import android.bluetooth.BluetoothDevice;
+import android.content.ComponentName;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.hardware.Sensor;
@@ -10,6 +13,7 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
@@ -35,15 +39,19 @@ import com.github.mikephil.charting.highlight.Highlight;
 import com.github.mikephil.charting.interfaces.datasets.ILineDataSet;
 import com.github.mikephil.charting.listener.OnChartValueSelectedListener;
 import com.github.mikephil.charting.utils.ColorTemplate;
+import com.google.android.gms.location.FusedLocationProviderClient;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.lang.Math;
 
+import uk.co.lemberg.motion_gestures.Application;
 import uk.co.lemberg.motion_gestures.R;
 import uk.co.lemberg.motion_gestures.adapter.ColorsAdapter;
+import uk.co.lemberg.motion_gestures.ble.BluetoothLeService;
 import uk.co.lemberg.motion_gestures.dialogs.DialogResultListener;
 import uk.co.lemberg.motion_gestures.dialogs.PromptDialog;
 import uk.co.lemberg.motion_gestures.settings.AppSettings;
@@ -62,6 +70,23 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 	private static final int GESTURE_SAMPLES = 128;
 	/* REFRESH RATE */
 	private static final int SAMPLING_PERIOD = 10000;
+
+	// Use this to call global-like variables set up in GlobalApplication
+	private Application mApp;
+
+	private Boolean permissionGranted = false;
+	private Boolean bleItemClicked = false;
+	private BluetoothLeService mBluetoothLeService;
+	private static HashMap<String,Integer> devicesStatus ;
+	private TextView devices_connected;
+	private int int_devices_connected = 0;
+	private static boolean isServiceRegistered;
+
+	// Used for Location Permission (required top enable bluetooth-related features)
+	private FusedLocationProviderClient mFusedLocationClient;
+	private static final int MY_PERMISSIONS_REQUEST_ACCESS_LOCATION = 100;
+
+	public final static int REQUEST_CODE_BSCAN = 1;
 
 	private AppSettings settings;
 
@@ -85,15 +110,49 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		// This variable is global and static-like
+		// (i.e. all data inside is never reinitialized and accessible from everywhere)
+		mApp = ((Application) getApplicationContext());
+		isServiceRegistered = false;
+
 		setContentView(R.layout.activity_main);
 
-		settings = AppSettings.getAppSettings(this);
-		sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-		accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
-		gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
+        checkPermissions();
 
+        if (!permissionGranted) {
+			requestLocationPermission();
+			if(!permissionGranted)
+				Toast.makeText(getApplicationContext(), "Bluetooth related features have been disabled", Toast.LENGTH_LONG).show();
+
+        }
+
+        // Permission is forced by preceding while
+		Intent playI = new Intent(MainActivity.this, uk.co.lemberg.motion_gestures.ble.DeviceScanActivity.class); //Start next activity
+		startActivityForResult(playI,REQUEST_CODE_BSCAN);
+
+		// Callback on Activity end is triggered in onActivityResult(..) for Async task
+
+		devicesStatus = new HashMap<String, Integer>();
+
+        Intent gattServiceIntent = new Intent(this, BluetoothLeService.class);
+        ServiceConnection mServiceConnection = new ServiceConnection() {
+            @Override
+            public void onServiceConnected(ComponentName name, IBinder service) {
+				mBluetoothLeService = ((BluetoothLeService.LocalBinder) service).getService();
+				if (!mBluetoothLeService.initialize()) {
+					Log.e(TAG, "Unable to initialize Bluetooth");
+					finish();
+				}
+            }
+
+            @Override
+            public void onServiceDisconnected(ComponentName name) {
+				mBluetoothLeService = null;
+            }
+        };
+        bindService(gattServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
+        isServiceRegistered = true;
 		initViews();
-		fillStatus();
 	}
 
 	@Override
@@ -146,6 +205,22 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 		return super.onOptionsItemSelected(item);
 	}
 
+	// Callback for Async Bluetooth Connection
+	@Override
+	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+		switch(requestCode) {
+			case REQUEST_CODE_BSCAN:
+				bConnect();
+
+				settings = AppSettings.getAppSettings(this);
+				sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+				accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
+				gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
+
+				fillStatus();
+				break;
+		}
+	}
 	// region permissions stuff
 	@Override
 	public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
@@ -163,10 +238,31 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 		}
 	}
 
-	private boolean checkPermissions() {
+    // Make a basic Android Alert to request for Location Permission
+    private void requestLocationPermission() {
+        ActivityCompat.requestPermissions(MainActivity.this,
+                new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                MY_PERMISSIONS_REQUEST_ACCESS_LOCATION);
+    }
+
+    private boolean checkPermissions() {
 		if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
 			ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, WRITE_PERMISSIONS_REQ_CODE);
 			return false;
+		}
+
+		// Assume thisActivity is the current activity
+		final int permissionCheck = ContextCompat.checkSelfPermission(this,
+				Manifest.permission.ACCESS_FINE_LOCATION);
+
+		// Request Location Permission if application don't already have it
+		if (ContextCompat.checkSelfPermission(this,
+				Manifest.permission.ACCESS_FINE_LOCATION)
+				!= PackageManager.PERMISSION_GRANTED) {
+
+			requestLocationPermission();
+		} else {
+			permissionGranted = true;
 		}
 		return true;
 	}
@@ -192,6 +288,9 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 		return chart.getLineData();
 	}
 
+	private void initPermission(){
+
+	}
 	private void initViews() {
 		spinLabels = findViewById(R.id.spinLabels);
 		chart = findViewById(R.id.chart);
@@ -614,6 +713,24 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 		}
 
 		return new Pair<>(pair.first, lineData);
+	}
+
+	// Bluetooth utils
+	private void bConnect() {
+		if (mApp.getBluetoothDevices() != null && mApp.isConnectionRequested()) {
+			mApp.setConnectionRequested(false);
+			for (BluetoothDevice bD : mApp.getBluetoothDevices()) {
+				if (mBluetoothLeService.connect(bD.getAddress())) {
+					devicesStatus.put(bD.getAddress(), R.string.connected);
+					int_devices_connected++;
+					// devices_connected.setText(Integer.toString(int_devices_connected));
+
+				} else {
+					// Should be useless as value for given key should already be false if this case happen
+					devicesStatus.put(bD.getAddress(), R.string.disconnected);
+				}
+			}
+		}
 	}
 
 	// endregion
