@@ -147,13 +147,13 @@ public class BluetoothLeService extends Service {
             // For all other profiles, writes the data formatted in HEX.
             final byte[] data = characteristic.getValue();
             if (data != null && data.length > 0) {
-                final StringBuilder stringBuilder = new StringBuilder(data.length);
-                for(byte byteChar : data)
-                    stringBuilder.append(String.format("%02X ", byteChar));
-                intent.putExtra(EXTRA_DATA, new String(data) + "\n" + stringBuilder.toString());
+                intent.putExtra("x",data[0]);
+                intent.putExtra("y",data[1]);
+                intent.putExtra("z",data[2]);
                 intent.putExtra("address",address);
             }
         }
+        intent.putExtra("characteristic",characteristic.getUuid().toString());
         sendBroadcast(intent);
     }
 
@@ -289,6 +289,22 @@ public class BluetoothLeService extends Service {
         mBluetoothGatt.readCharacteristic(characteristic);
     }
 
+    public void turnOnSensorTagServices() throws InterruptedException {
+        SensorTagServicesAPI.setAccelerometerPeriod(mBluetoothGatt,(byte)10);
+        Thread.sleep(500);
+        SensorTagServicesAPI.turnOnAccelerometer(mBluetoothGatt);
+        Thread.sleep(500);
+        SensorTagServicesAPI.enableAccelerometerNotifications(mBluetoothGatt);
+
+        Thread.sleep(500);
+
+        SensorTagServicesAPI.setGyroscopePeriod(mBluetoothGatt,(byte)10);
+        Thread.sleep(500);
+        SensorTagServicesAPI.turnOnGyroscope(mBluetoothGatt);
+        Thread.sleep(500);
+        SensorTagServicesAPI.enableGyroscopeNotifications(mBluetoothGatt);
+    }
+
     /**
      * Enables or disables notification on a give characteristic.
      *
@@ -301,15 +317,16 @@ public class BluetoothLeService extends Service {
             Log.w(TAG, "BluetoothAdapter not initialized");
             return;
         }
-        mBluetoothGatt.setCharacteristicNotification(characteristic, enabled);
+        // mBluetoothGatt.setCharacteristicNotification(characteristic, enabled);
 
-        // This is specific to Heart Rate Measurement.
+        /* This is specific to Heart Rate Measurement.
         if (UUID_HEART_RATE_MEASUREMENT.equals(characteristic.getUuid())) {
             BluetoothGattDescriptor descriptor = characteristic.getDescriptor(
                     UUID.fromString(SampleGattAttributes.CLIENT_CHARACTERISTIC_CONFIG));
             descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
             mBluetoothGatt.writeDescriptor(descriptor);
         }
+        */
     }
 
     /**

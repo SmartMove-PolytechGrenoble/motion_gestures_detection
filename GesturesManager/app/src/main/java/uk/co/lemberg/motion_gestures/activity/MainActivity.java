@@ -58,6 +58,7 @@ import uk.co.lemberg.motion_gestures.Application;
 import uk.co.lemberg.motion_gestures.R;
 import uk.co.lemberg.motion_gestures.adapter.ColorsAdapter;
 import uk.co.lemberg.motion_gestures.ble.BluetoothLeService;
+import uk.co.lemberg.motion_gestures.ble.SensorTagServicesAPI;
 import uk.co.lemberg.motion_gestures.dialogs.DialogResultListener;
 import uk.co.lemberg.motion_gestures.dialogs.PromptDialog;
 import uk.co.lemberg.motion_gestures.settings.AppSettings;
@@ -108,7 +109,7 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 	private Sensor gyroscope;
 
 	private boolean recStarted = false;
-	private long firstTimestamp = -1;
+	private long firstTimestamp = 0;
 	private int selectedEntryIndex = -1;
 
 	private long fileNameTimestamp = -1;
@@ -218,7 +219,7 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 
 				settings = AppSettings.getAppSettings(this);
 				if(mApp.isConnectionRequested()){
-					// Connect to SensorTag
+					// Connected to SensorTag
 				}
 				else {
 					// Use phone sensors
@@ -358,7 +359,9 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 			getLineData().clearValues();
 		}
 		else {
-			Toast.makeText(this, R.string.sensor_failed, Toast.LENGTH_SHORT).show();
+		    if(!mApp.isConnectionRequested()) {
+                Toast.makeText(this, R.string.sensor_failed, Toast.LENGTH_SHORT).show();
+            }
 			toggleRec.setChecked(false);
 		}
 	}
@@ -368,8 +371,10 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 			firstTimestamp = -1;
 			fileNameTimestamp = System.currentTimeMillis();
 			chart.highlightValue(null, true);
-			sensorManager.registerListener(sensorEventListener, accelerometer, SAMPLING_PERIOD);
-			recStarted = sensorManager.registerListener(sensorEventListener, gyroscope, SAMPLING_PERIOD);
+			if(!mApp.isConnectionRequested()) {
+                sensorManager.registerListener(sensorEventListener, accelerometer, SAMPLING_PERIOD);
+                recStarted = sensorManager.registerListener(sensorEventListener, gyroscope, SAMPLING_PERIOD);
+            }
 		}
 		return recStarted;
 	}
@@ -665,7 +670,7 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 	}
 
 	// region chart helper methods
-	private static final String[] LINE_DESCRIPTIONS = {"Xa", "Ya", "Za", "Xg", "Yg"};
+	private static final String[] LINE_DESCRIPTIONS = {"Xa", "Ya", "Za", "Xg", "Yg", "Zg"};
 	private static final int[] LINE_COLORS = {0xFFFF0000, 0xFF00FF00, 0xFF0000FF,0xFFFF0000, 0xFF00FF00, 0xFF0000FF};
 
 	private static final int Xa_INDEX = 0;
@@ -673,6 +678,7 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 	private static final int Za_INDEX = 2;
 	private static final int Xg_INDEX = 3;
 	private static final int Yg_INDEX = 4;
+	private static final int Zg_INDEX = 5;
 
 	private static LineDataSet createLineDataSet(String description, int color) {
 		LineDataSet set = new LineDataSet(null, description);
@@ -800,12 +806,46 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 
 			} else if (BluetoothLeService.ACTION_GATT_DISCONNECTED.equals(action)) {
 				Toast.makeText(getApplicationContext(), "device " + address + " disconnected", Toast.LENGTH_LONG).show();
-
+				bReconnect();
 			} else if (BluetoothLeService.ACTION_GATT_SERVICES_DISCOVERED.equals(action)) {
 				Toast.makeText(getApplicationContext(), "services discovered for device " + address, Toast.LENGTH_LONG).show();
-				bReconnect();
+				try {
+					mBluetoothLeService.turnOnSensorTagServices();
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
 			} else if (BluetoothLeService.ACTION_DATA_AVAILABLE.equals(action)) {
+			    if(firstTimestamp != 0) {
+                    if (firstTimestamp == -1) firstTimestamp = (System.currentTimeMillis() / 1000);
+                    long entryTimestampFixed = System.currentTimeMillis() / 1000 - firstTimestamp;
+                    final float floatTimestampMicros = entryTimestampFixed / 1000000f;
 
+				if(intent.getStringExtra("characteristic").equals(SensorTagServicesAPI.accelDataUuid.toString())){
+								Log.d("data received", "data " + intent.getStringExtra("characteristic") + " :" +
+						" x : " + intent.getByteExtra("x",(byte) 0) +
+						" y : " + intent.getByteExtra("y",(byte) 0) +
+						" z : " + intent.getByteExtra("z",(byte) 0));
+					addPoint(getLineData(), Xa_INDEX, floatTimestampMicros, intent.getByteExtra("x",(byte) 0));
+					addPoint(getLineData(), Ya_INDEX, floatTimestampMicros, intent.getByteExtra("y",(byte) 0));
+					addPoint(getLineData(), Za_INDEX, floatTimestampMicros, intent.getByteExtra("z",(byte) 0));
+				}
+
+				else if (intent.getStringExtra("characteristic").equals(SensorTagServicesAPI.gyroDataUuid.toString())) {
+                        Log.d("data received", "data " + intent.getStringExtra("characteristic") + " :" +
+                                " x : " + intent.getByteExtra("x", (byte) 0) +
+                                " y : " + intent.getByteExtra("y", (byte) 0) +
+                                " z : " + intent.getByteExtra("z", (byte) 0));
+                        addPoint(getLineData(), Xa_INDEX, floatTimestampMicros, intent.getByteExtra("x", (byte) 0));
+                        addPoint(getLineData(), Ya_INDEX, floatTimestampMicros, intent.getByteExtra("y", (byte) 0));
+                        addPoint(getLineData(), Za_INDEX, floatTimestampMicros, intent.getByteExtra("z", (byte) 0));
+                    }
+
+                    chart.notifyDataSetChanged();
+                    chart.invalidate();
+
+                    supportInvalidateOptionsMenu();
+                    fillStatus();
+                }
 			}
 		}
 	};
