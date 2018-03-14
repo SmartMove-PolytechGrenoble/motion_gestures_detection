@@ -817,10 +817,11 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 			} else if (BluetoothLeService.ACTION_DATA_AVAILABLE.equals(action)) {
 			    if(firstTimestamp != 0) {
                     if (firstTimestamp == -1) firstTimestamp = (System.currentTimeMillis() / 1000);
-                    long entryTimestampFixed = System.currentTimeMillis() / 1000 - firstTimestamp;
-                    final float floatTimestampMicros = entryTimestampFixed / 1000000f;
+                    long entryTimestampFixed = (System.currentTimeMillis() / 1000 - firstTimestamp) * 1000;
+                    //final float floatTimestampMicros = entryTimestampFixed / 1000000f;
+					final float floatTimestampMicros = entryTimestampFixed;
 
-				if(intent.getStringExtra("characteristic").equals(SensorTagServicesAPI.accelDataUuid.toString())){
+					if(intent.getStringExtra("characteristic").equals(SensorTagServicesAPI.accelDataUuid.toString())){
 								Log.d("data received", "data " + intent.getStringExtra("characteristic") + " :" +
 						" x : " + intent.getByteExtra("x",(byte) 0) +
 						" y : " + intent.getByteExtra("y",(byte) 0) +
