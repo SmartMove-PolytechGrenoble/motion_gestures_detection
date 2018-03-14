@@ -120,7 +120,7 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
 		// This variable is global and static-like
 		// (i.e. all data inside is never reinitialized and accessible from everywhere)
 		mApp = ((Application) getApplicationContext());
-		mApp.setConnectionRequested(true);
+		mApp.setConnectionRequested(false);
 		isServiceRegistered = false;
 
 		setContentView(R.layout.activity_main);
@@ -835,9 +835,9 @@ public class MainActivity extends AppCompatActivity implements DialogResultListe
                                 " x : " + intent.getByteExtra("x", (byte) 0) +
                                 " y : " + intent.getByteExtra("y", (byte) 0) +
                                 " z : " + intent.getByteExtra("z", (byte) 0));
-                        addPoint(getLineData(), Xa_INDEX, floatTimestampMicros, intent.getByteExtra("x", (byte) 0));
-                        addPoint(getLineData(), Ya_INDEX, floatTimestampMicros, intent.getByteExtra("y", (byte) 0));
-                        addPoint(getLineData(), Za_INDEX, floatTimestampMicros, intent.getByteExtra("z", (byte) 0));
+                        addPoint(getLineData(), Xg_INDEX, floatTimestampMicros, intent.getByteExtra("x", (byte) 0));
+                        addPoint(getLineData(), Yg_INDEX, floatTimestampMicros, intent.getByteExtra("y", (byte) 0));
+                        addPoint(getLineData(), Zg_INDEX, floatTimestampMicros, intent.getByteExtra("z", (byte) 0));
                     }
 
                     chart.notifyDataSetChanged();

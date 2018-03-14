@@ -3,11 +3,6 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <item android:title="Bparam"
-        android:id="@+id/action_bparam"
-        app:showAsAction="always"
-        android:icon="@drawable/ic_bluetooth"/>
-
     <item android:title="Save"
           android:id="@+id/action_save"
           app:showAsAction="always"
