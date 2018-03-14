@@ -61,7 +61,7 @@ public class SensorTagServicesAPI {
     public static void setAccelerometerPeriod(BluetoothGatt bluetoothGatt, byte period){
 
         //Period =[Input*10]ms(lower limit100ms),default 1000ms
-        byte[] periodToSend = ByteBuffer.allocate(4).putInt(period/10).array();
+        //byte[] periodToSend = ByteBuffer.allocate(4).putInt(period/10).array();
 
         BluetoothGattService accelService = bluetoothGatt.getService(accelServiceUuid);
         BluetoothGattCharacteristic config = accelService.getCharacteristic(accelPeriodUuid);
@@ -102,11 +102,12 @@ public class SensorTagServicesAPI {
     public static void setGyroscopePeriod(BluetoothGatt bluetoothGatt, byte period){
 
         //Period =[Input*10]ms(lower limit100ms),default 1000ms
-        byte[] periodToSend = ByteBuffer.allocate(4).putInt(period/10).array();
+        //byte[] periodToSend = ByteBuffer.allocate(4).putInt(period/10).array();
 
         BluetoothGattService gyroService = bluetoothGatt.getService(gyroServiceUuid);
         BluetoothGattCharacteristic config = gyroService.getCharacteristic(gyroPeriodUuid);
-        config.setValue(periodToSend);
+        config.setValue(new byte[]{period});
+        //config.setValue(periodToSend);
         bluetoothGatt.writeCharacteristic(config);
     }
 
